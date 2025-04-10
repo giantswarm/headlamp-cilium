@@ -55,8 +55,7 @@ Modify your Headlamp Helm `values.yaml` or Deployment manifest:
 
 initContainers:
   - name: init-cilium-plugin
-    # Replace with your built plugin image (e.g., ghcr.io/your-org/headlamp-cilium:latest)
-    image: ghcr.io/your-org/headlamp-cilium:latest
+    image: ghcr.io/giantswarm/headlamp-cilium:latest
     imagePullPolicy: Always
     command:
       - /bin/sh

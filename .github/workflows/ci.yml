@@ -13,8 +13,7 @@ on:
 
 env:
   # Define the image name for the plugin files container
-  # !!! Adjust this to your actual registry/repository !!!
-  IMAGE_NAME: ghcr.io/your-org/headlamp-cilium
+  IMAGE_NAME: ghcr.io/giantswarm/headlamp-cilium
 
 jobs:
   build-test-publish:
