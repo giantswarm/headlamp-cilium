@@ -3,17 +3,16 @@ import {
   registerSidebarEntry,
 } from '@kinvolk/headlamp-plugin/lib';
 import {
-  ConditionsTable, // Use this for policy status
-  Link, // Use for linking related resources if possible later
+  ConditionsTable,
   Loader,
   MainInfoSection,
   NameValueTable,
   ResourceListView,
   SectionBox,
-  SimpleTable, // Use for structured lists like ports/rules
+  SimpleTable,
   StatusLabel,
 } from '@kinvolk/headlamp-plugin/lib/CommonComponents';
-import { KubeObjectInterface, KubeObject } from '@kinvolk/headlamp-plugin/lib/K8s/cluster'; // Import KubeObject
+import { KubeObject,KubeObjectInterface } from '@kinvolk/headlamp-plugin/lib/K8s/cluster'; // Import KubeObject
 import { makeCustomResourceClass } from '@kinvolk/headlamp-plugin/lib/K8s/crd';
 import { Box, Chip, Grid, Typography } from '@mui/material'; // Import necessary MUI components
 import React from 'react';
@@ -64,9 +63,9 @@ const CiliumNode = makeCustomResourceClass({
 // --- Detail View Helper Functions ---
 
 function renderStatusLabel(status?: string) {
-  // Map statuses to valid StatusLabel severities or 'unknown'
-  let severity: 'success' | 'error' | 'warning' | 'info' | 'unknown' = 'unknown'; // Default to unknown
-  if (!status) return <StatusLabel status={severity}>Unknown</StatusLabel>;
+  // Map statuses to valid StatusLabel severities or '' (default)
+  let severity: 'success' | 'error' | 'warning' | '' = ''; // Allow empty string for default
+  if (!status) return <StatusLabel status="">Unknown</StatusLabel>; // Map undefined to default
 
   const lowerStatus = status.toLowerCase();
   if (lowerStatus === 'ready' || lowerStatus === 'enforcing' || lowerStatus === 'true') {
@@ -76,9 +75,9 @@ function renderStatusLabel(status?: string) {
   } else if (lowerStatus === 'waiting-for-identity' || lowerStatus === 'waiting-to-regenerate' || lowerStatus === 'restoring' || lowerStatus === 'regenerating' || lowerStatus === 'pending') {
       severity = 'warning'; // Treat pending as warning
   } else if (lowerStatus === 'disabled' || lowerStatus === 'non-enforcing' || lowerStatus === 'no status') {
-      severity = 'info'; // Use info for these neutral/disabled states
+      severity = ''; // Map info to default/neutral appearance
   }
-  // Other statuses will use 'unknown' severity
+  // Other statuses will use default ('') appearance
 
   return <StatusLabel status={severity}>{status}</StatusLabel>;
 }
@@ -243,7 +242,7 @@ function CiliumNodeDetailsView() {
     }
 
     const { spec = {}, status = {}, metadata = {} } = item.jsonData || {};
-    const { ipam = {}, health: statusHealth = {}, encryption: statusEncryption = {} } = status; // Renamed to avoid clash
+    const { ipam = {}, health: statusHealth = {}, encryption: statusEncryption = {} } = status;
     const { addresses = [] } = spec;
 
     const ciliumInternalIP = addresses.find((a: any) => a.type === 'CiliumInternalIP')?.ip || '-';
@@ -281,6 +280,13 @@ function CiliumNodeDetailsView() {
          </SectionBox>
          <SectionBox title="Encryption (Spec)">
             <NameValueTable rows={[{ name: 'Key Index', value: spec.encryption?.key ?? 'Disabled' }]} />
+         </SectionBox>
+         {/* Display the status health and encryption info */}
+         <SectionBox title="Health Status">
+            <NameValueTable rows={Object.entries(statusHealth || {}).map(([k,v]) => ({name: k, value: String(v)}))} />
+         </SectionBox>
+          <SectionBox title="Encryption Status">
+            <NameValueTable rows={Object.entries(statusEncryption || {}).map(([k,v]) => ({name: k, value: String(v)}))} />
          </SectionBox>
          {/* TODO: Add provider-specific status sections (AWS ENI, Azure, GKE, etc.) */}
       </>
@@ -359,8 +365,7 @@ function PolicyRule({ rule, type, index }: PolicyRuleProps) {
 
 
 interface PolicyDetailsProps {
-  // Use KubeObject instead of KubeObjectInterface if available methods are needed
-  item: KubeObjectInterface;
+  item: KubeObject; // Use KubeObject base class type
   titlePrefix: string;
 }
 
@@ -394,8 +399,7 @@ function PolicyDetailsComponent({ item, titlePrefix }: PolicyDetailsProps) {
   return (
     <>
       <MainInfoSection
-        resource={item}
-        // @ts-ignore
+        resource={item} // Pass KubeObject directly
         title={`${titlePrefix}: ${metadata.name}`}
         extraInfo={[
             { name: 'Description', value: description },
@@ -405,15 +409,16 @@ function PolicyDetailsComponent({ item, titlePrefix }: PolicyDetailsProps) {
        <SectionBox title="Status">
            {/* Using derivativePolicies status as per CRD for CNP/CCNP */}
            <SimpleTable
-                data={Object.entries(status?.derivativePolicies || {})}
-                // Using getter for derived values, accessor for direct keys
+                // Use `any` for data type if complex/unknown structure from Object.entries
+                data={Object.entries(status?.derivativePolicies || {}) as any}
+                // Use label, datum (direct key) / getter (derived value)
                 columns={[
-                    { header: 'Node', accessor: '0'}, // Key is node name (string)
-                    { header: 'Enforcing', getter: (row: any) => String(row[1].enforcing), },
-                    { header: 'OK', getter: (row: any) => String(row[1].ok), },
-                    { header: 'Revision', getter: (row: any) => row[1].localPolicyRevision, },
-                    { header: 'Error', getter: (row: any) => row[1].error || '-', },
-                    { header: 'Last Updated', getter: (row: any) => row[1].lastUpdated, },
+                    { label: 'Node', datum: '0'}, // Try datum again for the key
+                    { label: 'Enforcing', getter: (row: any) => String(row[1].enforcing), },
+                    { label: 'OK', getter: (row: any) => String(row[1].ok), },
+                    { label: 'Revision', getter: (row: any) => row[1].localPolicyRevision, },
+                    { label: 'Error', getter: (row: any) => row[1].error || '-', },
+                    { label: 'Last Updated', getter: (row: any) => row[1].lastUpdated, },
                 ]}
                 emptyMessage="No derivative policy status available."
            />
@@ -454,8 +459,8 @@ function CiliumNetworkPolicyDetailsView() {
   if (!item) {
     return <Loader title="Loading Network Policy details..." />;
   }
-  // Cast item to KubeObjectInterface for the component prop
-  return <PolicyDetailsComponent item={item as KubeObjectInterface} titlePrefix="Network Policy" />;
+  // Pass KubeObject directly
+  return <PolicyDetailsComponent item={item} titlePrefix="Network Policy" />;
 }
 
 function CiliumClusterwideNetworkPolicyDetailsView() {
@@ -470,8 +475,8 @@ function CiliumClusterwideNetworkPolicyDetailsView() {
   if (!item) {
     return <Loader title="Loading Clusterwide Network Policy details..." />;
   }
-   // Cast item to KubeObjectInterface for the component prop
-   return <PolicyDetailsComponent item={item as KubeObjectInterface} titlePrefix="Clusterwide Network Policy" />;
+   // Pass KubeObject directly
+   return <PolicyDetailsComponent item={item} titlePrefix="Clusterwide Network Policy" />;
 }
 
 // --- Routes and Sidebar ---
