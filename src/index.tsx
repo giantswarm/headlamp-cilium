@@ -3,14 +3,14 @@ import {
   registerSidebarEntry,
 } from '@kinvolk/headlamp-plugin/lib';
 import {
-  // ConditionsTable, // Keep for potential use later
+  ConditionsTable, // Keep for potential use later
   Link,
   Loader,
   MainInfoSection,
   NameValueTable,
   ResourceListView,
   SectionBox,
-  // StatusLabel, // Keep for potential use later
+  StatusLabel, // Keep for potential use later
   // Table, // Keep for potential use later
 } from '@kinvolk/headlamp-plugin/lib/CommonComponents';
 import { KubeObjectInterface } from '@kinvolk/headlamp-plugin/lib/K8s/cluster';
@@ -61,9 +61,205 @@ const CiliumNode = makeCustomResourceClass({
 
 // Add other CRDs like CiliumCIDRGroup, CiliumExternalWorkload later if needed
 
-// --- Placeholder Detail View Components ---
+// --- Detail View Components ---
 
-function PlaceholderDetailsView({ resourceClass, titlePrefix }: { resourceClass: any, titlePrefix: string }) {
+// Helper function to render StatusLabel based on state
+function renderStatusLabel(status?: string) {
+    let severity: 'success' | 'error' | 'warning' | 'info' | 'unknown' = 'unknown';
+    if (!status) return <StatusLabel status={severity}>Unknown</StatusLabel>;
+
+    const lowerStatus = status.toLowerCase();
+    if (lowerStatus === 'ready' || lowerStatus === 'enforcing' || lowerStatus === 'true') {
+        severity = 'success';
+    } else if (lowerStatus === 'disconnected' || lowerStatus === 'invalid' || lowerStatus === 'false' || lowerStatus.includes('fail')) {
+        severity = 'error';
+    } else if (lowerStatus === 'waiting-for-identity' || lowerStatus === 'waiting-to-regenerate' || lowerStatus === 'restoring' || lowerStatus === 'regenerating') {
+        severity = 'warning';
+    } else if (lowerStatus === 'disabled' || lowerStatus === 'non-enforcing') {
+        severity = 'info';
+    }
+
+    return <StatusLabel status={severity}>{status}</StatusLabel>;
+}
+
+
+function CiliumEndpointDetailsView() {
+  const params = useParams<{ namespace: string; name: string }>();
+  const { name, namespace } = params;
+  const [item, error] = CiliumEndpoint.useGet(name, namespace);
+
+  if (error) {
+    // @ts-ignore Error type is not well defined
+    return <div>Error loading Endpoint: {(error as Error).message}</div>;
+  }
+  if (!item) {
+    return <Loader title="Loading Endpoint details..." />;
+  }
+
+  const { status = {}, metadata = {} } = item.jsonData || {};
+  const { identity = {}, networking = {}, policy = {}, health = {} } = status;
+  const ipv4 = networking?.addressing?.[0]?.ipv4 || '-';
+  const ipv6 = networking?.addressing?.[0]?.ipv6 || '-';
+
+  return (
+    <>
+      <MainInfoSection
+        resource={item}
+        // @ts-ignore
+        title={`Endpoint: ${metadata.name}`}
+        extraInfo={[
+          { name: 'State', value: renderStatusLabel(status.state) },
+          { name: 'Identity ID', value: identity?.id ?? '-' },
+          { name: 'IPv4', value: ipv4 },
+          { name: 'IPv6', value: ipv6 },
+          { name: 'Node', value: networking?.node || '-' },
+        ]}
+        // actions={[ /* Add Actions Here */ ]}
+      />
+      <SectionBox title="Policy Enforcement">
+        <NameValueTable
+          rows={[
+            { name: 'Ingress', value: renderStatusLabel(policy?.ingress?.state) },
+            { name: 'Egress', value: renderStatusLabel(policy?.egress?.state) },
+            // TODO: Add more details like allowed identities if needed
+          ]}
+        />
+      </SectionBox>
+       <SectionBox title="Health">
+        <NameValueTable
+          rows={[
+            { name: 'BPF', value: renderStatusLabel(health?.bpf) },
+            { name: 'Policy', value: renderStatusLabel(health?.policy) },
+            { name: 'Connected', value: renderStatusLabel(String(health?.connected)) }, // Assuming 'true'/'false'
+            { name: 'Overall', value: renderStatusLabel(health?.overallHealth) },
+          ]}
+        />
+      </SectionBox>
+      <SectionBox title="Networking Details">
+        <NameValueTable
+            rows={[
+                { name: 'Node Address', value: networking?.node || '-' },
+                // Display all addresses if more than one exists potentially
+                ...(networking?.addressing?.flatMap((addr: any, index: number) => [
+                   { name: `IPv4 [${index}]`, value: addr.ipv4 || '-' },
+                   { name: `IPv6 [${index}]`, value: addr.ipv6 || '-' },
+                ]) || []),
+            ]}
+        />
+       </SectionBox>
+      {/* Add sections for Logs, Controllers if needed */}
+       <SectionBox title="Identity Labels">
+         <NameValueTable
+            rows={identity?.labels?.map((label: string) => ({ name: label })) || [{ name: '-', value: 'No labels' }]}
+         />
+       </SectionBox>
+    </>
+  );
+}
+
+function CiliumIdentityDetailsView() {
+  const params = useParams<{ name: string }>(); // Cluster-scoped
+  const { name } = params;
+  const [item, error] = CiliumIdentity.useGet(name); // No namespace
+
+  if (error) {
+    // @ts-ignore Error type is not well defined
+    return <div>Error loading Identity: {(error as Error).message}</div>;
+  }
+  if (!item) {
+    return <Loader title="Loading Identity details..." />;
+  }
+
+  const securityLabels = item.jsonData?.['security-labels'] || {};
+  const metadataLabels = item.metadata?.labels || {};
+
+  return (
+    <>
+      <MainInfoSection
+        resource={item}
+        // @ts-ignore
+        title={`Identity: ${item.metadata.name}`} // Name is the ID
+         // No extra info needed for the header for now
+        // actions={[ /* Add Actions Here */ ]}
+      />
+      <SectionBox title="Security Labels (Source of Truth)">
+        <NameValueTable
+          rows={Object.entries(securityLabels).map(([k, v]) => ({ name: k, value: v as string }))}
+          defaultOpen
+        />
+      </SectionBox>
+      <SectionBox title="Kubernetes Labels (Used for Lookup)">
+         <NameValueTable
+            rows={Object.entries(metadataLabels).map(([k, v]) => ({ name: k, value: v as string }))}
+         />
+      </SectionBox>
+    </>
+  );
+}
+
+
+function CiliumNodeDetailsView() {
+    const params = useParams<{ name: string }>(); // Cluster-scoped
+    const { name } = params;
+    const [item, error] = CiliumNode.useGet(name); // No namespace
+
+    if (error) {
+      // @ts-ignore Error type is not well defined
+      return <div>Error loading Node: {(error as Error).message}</div>;
+    }
+    if (!item) {
+      return <Loader title="Loading Node details..." />;
+    }
+
+    const { spec = {}, status = {}, metadata = {} } = item.jsonData || {};
+    const { ipam = {}, health = {}, encryption = {} } = status;
+    const { addresses = [] } = spec;
+
+    const ciliumInternalIP = addresses.find((a: any) => a.type === 'CiliumInternalIP')?.ip || '-';
+    const internalIP = addresses.find((a: any) => a.type === 'InternalIP')?.ip || '-';
+
+    return (
+      <>
+        <MainInfoSection
+          resource={item}
+          // @ts-ignore
+          title={`Node: ${metadata.name}`}
+          extraInfo={[
+            { name: 'Instance ID', value: spec.instanceID || '-' },
+            { name: 'Cilium Internal IP', value: ciliumInternalIP },
+            { name: 'Internal IP', value: internalIP },
+            { name: 'Boot ID', value: spec.bootid || '-' },
+          ]}
+          // actions={[ /* Add Actions Here */ ]}
+        />
+        <SectionBox title="Node Addresses">
+          <NameValueTable
+            rows={addresses.map((addr: any) => ({ name: addr.type, value: addr.ip }))}
+          />
+        </SectionBox>
+        <SectionBox title="Health Endpoints">
+           <NameValueTable
+             rows={[
+                { name: 'IPv4', value: spec.health?.ipv4 || '-' },
+                { name: 'IPv6', value: spec.health?.ipv6 || '-' },
+             ]}
+           />
+         </SectionBox>
+         <SectionBox title="IPAM Status">
+            {/* TODO: Improve display of IPAM status, potentially with tables */}
+            <pre>{JSON.stringify(ipam || {}, null, 2)}</pre>
+         </SectionBox>
+         <SectionBox title="Encryption">
+            <NameValueTable rows={[{ name: 'Key Index', value: spec.encryption?.key ?? 'Disabled' }]} />
+         </SectionBox>
+         {/* TODO: Add provider-specific status sections (AWS ENI, Azure, GKE, etc.) */}
+      </>
+    );
+}
+
+// --- Placeholder Detail Views for Policies (Keep Simple for Now) ---
+
+function PlaceholderPolicyDetailsView({ resourceClass, titlePrefix }: { resourceClass: any, titlePrefix: string }) {
   // Use useParams type based on whether the resource is namespaced
   const params = useParams<{ namespace?: string; name: string }>();
   const { name, namespace } = params;
@@ -79,42 +275,56 @@ function PlaceholderDetailsView({ resourceClass, titlePrefix }: { resourceClass:
   }
 
   const itemName = item?.metadata?.name || name;
+  const { spec = {}, status = {} } = item.jsonData || {};
+  const description = spec.description || '-';
+  const endpointSelector = spec.endpointSelector; // Present in both CNP and Rule
+  const nodeSelector = spec.nodeSelector; // Present in both CCNP and Rule
+  const ruleEndpointSelector = spec.specs?.[0]?.endpointSelector; // If using specs array
+  const ruleNodeSelector = spec.specs?.[0]?.nodeSelector; // If using specs array
 
-  // Basic details for now
+  // Determine the primary selector
+  let selectorString = '-';
+  if (endpointSelector) {
+    selectorString = `Endpoint Selector: ${JSON.stringify(endpointSelector.matchLabels || endpointSelector)}`;
+  } else if (nodeSelector) {
+    selectorString = `Node Selector: ${JSON.stringify(nodeSelector.matchLabels || nodeSelector)}`;
+  } else if (ruleEndpointSelector) {
+      selectorString = `Rule Endpoint Selector: ${JSON.stringify(ruleEndpointSelector.matchLabels || ruleEndpointSelector)}`;
+  } else if (ruleNodeSelector) {
+      selectorString = `Rule Node Selector: ${JSON.stringify(ruleNodeSelector.matchLabels || ruleNodeSelector)}`;
+  }
+
+
   return (
     <>
       <MainInfoSection
         resource={item}
-        // @ts-ignore Title prop works but might show TS error depending on Headlamp version
+        // @ts-ignore
         title={`${titlePrefix}: ${itemName}`}
+        extraInfo={[
+            { name: 'Description', value: description },
+            { name: 'Selector', value: selectorString },
+        ]}
         // actions={[ /* Add Actions Here */ ]}
       />
-      <SectionBox title="Raw YAML">
-        <pre>{JSON.stringify(item?.jsonData || {}, null, 2)}</pre>
+       <SectionBox title="Status">
+           <ConditionsTable resource={item.jsonData} />
+       </SectionBox>
+      <SectionBox title="Spec (Raw YAML)">
+        {/* Displaying full spec is complex, show raw YAML for now */}
+        <pre>{JSON.stringify(spec || {}, null, 2)}</pre>
       </SectionBox>
-      {/* Add more sections later */}
     </>
   );
 }
 
+
 function CiliumNetworkPolicyDetailsView() {
-  return <PlaceholderDetailsView resourceClass={CiliumNetworkPolicy} titlePrefix="Network Policy" />;
+  return <PlaceholderPolicyDetailsView resourceClass={CiliumNetworkPolicy} titlePrefix="Network Policy" />;
 }
 
 function CiliumClusterwideNetworkPolicyDetailsView() {
-  return <PlaceholderDetailsView resourceClass={CiliumClusterwideNetworkPolicy} titlePrefix="Clusterwide Network Policy" />;
-}
-
-function CiliumEndpointDetailsView() {
-  return <PlaceholderDetailsView resourceClass={CiliumEndpoint} titlePrefix="Endpoint" />;
-}
-
-function CiliumIdentityDetailsView() {
-  return <PlaceholderDetailsView resourceClass={CiliumIdentity} titlePrefix="Identity" />;
-}
-
-function CiliumNodeDetailsView() {
-  return <PlaceholderDetailsView resourceClass={CiliumNode} titlePrefix="Node" />;
+  return <PlaceholderPolicyDetailsView resourceClass={CiliumClusterwideNetworkPolicy} titlePrefix="Clusterwide Network Policy" />;
 }
 
 
@@ -197,8 +407,15 @@ registerRoute({
             label: 'Status',
             getter: (policy: KubeObjectInterface) => {
                 // Example: check for a 'Valid' condition type
-                const validCondition = policy.status?.conditions?.find((c: any) => c.type === 'Valid');
-                return validCondition?.status || 'Unknown';
+                // Note: CRD shows status conditions are under status.derivativePolicies[nodeName].conditions? Maybe just show OK?
+                // Let's simplify for now
+                const nodeStatuses = Object.values(policy.status?.derivativePolicies || {});
+                if (nodeStatuses.length === 0) return 'No Status';
+                // Check if any node has an error or is not enforcing
+                const hasError = nodeStatuses.some((s: any) => s.error);
+                const allEnforcing = nodeStatuses.every((s: any) => s.enforcing);
+                if (hasError) return 'Error';
+                return allEnforcing ? 'Enforcing' : 'Pending';
             },
             sort: true,
         },
@@ -231,12 +448,20 @@ registerRoute({
       columns={[
         'name',
         // Basic status check - needs refinement based on actual status structure
-        {
+         {
             id: 'status',
             label: 'Status',
-            getter: (policy: KubeObjectInterface) => {
-                const validCondition = policy.status?.conditions?.find((c: any) => c.type === 'Valid');
-                return validCondition?.status || 'Unknown';
+             getter: (policy: KubeObjectInterface) => {
+                // Example: check for a 'Valid' condition type
+                // Note: CRD shows status conditions are under status.derivativePolicies[nodeName].conditions? Maybe just show OK?
+                // Let's simplify for now
+                const nodeStatuses = Object.values(policy.status?.derivativePolicies || {});
+                if (nodeStatuses.length === 0) return 'No Status';
+                // Check if any node has an error or is not enforcing
+                const hasError = nodeStatuses.some((s: any) => s.error);
+                const allEnforcing = nodeStatuses.every((s: any) => s.enforcing);
+                if (hasError) return 'Error';
+                return allEnforcing ? 'Enforcing' : 'Pending';
             },
             sort: true,
         },
@@ -279,6 +504,9 @@ registerRoute({
             id: 'state',
             label: 'State',
             getter: (endpoint: KubeObjectInterface) => endpoint.status?.state || 'Unknown',
+             cellProps: (endpoint: KubeObjectInterface) => ({
+                children: renderStatusLabel(endpoint.status?.state),
+            }),
             sort: true,
         },
         {
