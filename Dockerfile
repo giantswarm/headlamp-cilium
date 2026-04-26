@@ -1,6 +1,6 @@
 # Dockerfile
 # Stage 1: Build the headlamp-cilium plugin
-FROM node:20-alpine as builder
+FROM node:24-alpine as builder
 
 # Set the working directory
 WORKDIR /plugin
