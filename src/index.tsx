@@ -23,6 +23,7 @@ const ciliumV2Version = 'v2';
 const CiliumNetworkPolicy = makeCustomResourceClass({
   apiInfo: [{ group: ciliumGroup, version: ciliumV2Version }],
   isNamespaced: true,
+  kind: 'CiliumNetworkPolicy',
   singularName: 'CiliumNetworkPolicy',
   pluralName: 'ciliumnetworkpolicies',
 });
@@ -30,6 +31,7 @@ const CiliumNetworkPolicy = makeCustomResourceClass({
 const CiliumClusterwideNetworkPolicy = makeCustomResourceClass({
   apiInfo: [{ group: ciliumGroup, version: ciliumV2Version }],
   isNamespaced: false, // Cluster-scoped
+  kind: 'CiliumClusterwideNetworkPolicy',
   singularName: 'CiliumClusterwideNetworkPolicy',
   pluralName: 'ciliumclusterwidenetworkpolicies',
 });
@@ -37,6 +39,7 @@ const CiliumClusterwideNetworkPolicy = makeCustomResourceClass({
 const CiliumEndpoint = makeCustomResourceClass({
   apiInfo: [{ group: ciliumGroup, version: ciliumV2Version }],
   isNamespaced: true,
+  kind: 'CiliumEndpoint',
   singularName: 'CiliumEndpoint',
   pluralName: 'ciliumendpoints',
 });
@@ -44,6 +47,7 @@ const CiliumEndpoint = makeCustomResourceClass({
 const CiliumIdentity = makeCustomResourceClass({
   apiInfo: [{ group: ciliumGroup, version: ciliumV2Version }],
   isNamespaced: false, // Cluster-scoped
+  kind: 'CiliumIdentity',
   singularName: 'CiliumIdentity',
   pluralName: 'ciliumidentities',
 });
@@ -51,6 +55,7 @@ const CiliumIdentity = makeCustomResourceClass({
 const CiliumNode = makeCustomResourceClass({
   apiInfo: [{ group: ciliumGroup, version: ciliumV2Version }],
   isNamespaced: false, // Cluster-scoped
+  kind: 'CiliumNode',
   singularName: 'CiliumNode',
   pluralName: 'ciliumnodes',
 });
@@ -628,8 +633,7 @@ registerRoute({
 // CiliumNetworkPolicy Detail View
 registerRoute({
   path: '/cilium/networkpolicies/:namespace/:name',
-  sidebar: CILIUM_NETWORK_POLICIES_LIST_ROUTE,
-  parent: CILIUM_ROOT_SIDEBAR,
+  sidebar: { item: CILIUM_NETWORK_POLICIES_LIST_ROUTE, sidebar: CILIUM_ROOT_SIDEBAR },
   name: CILIUM_NETWORK_POLICY_DETAILS_ROUTE,
   exact: true,
   component: CiliumNetworkPolicyDetailsView,
@@ -657,8 +661,7 @@ registerRoute({
 // CiliumClusterwideNetworkPolicy Detail View
 registerRoute({
   path: '/cilium/clusterwidenetworkpolicies/:name',
-  sidebar: CILIUM_CLUSTERWIDE_NETWORK_POLICIES_LIST_ROUTE,
-  parent: CILIUM_ROOT_SIDEBAR,
+  sidebar: { item: CILIUM_CLUSTERWIDE_NETWORK_POLICIES_LIST_ROUTE, sidebar: CILIUM_ROOT_SIDEBAR },
   name: CILIUM_CLUSTERWIDE_NETWORK_POLICY_DETAILS_ROUTE,
   exact: true,
   component: CiliumClusterwideNetworkPolicyDetailsView,
@@ -712,8 +715,7 @@ registerRoute({
 // CiliumEndpoint Detail View
 registerRoute({
   path: '/cilium/endpoints/:namespace/:name',
-  sidebar: CILIUM_ENDPOINTS_LIST_ROUTE,
-  parent: CILIUM_ROOT_SIDEBAR,
+  sidebar: { item: CILIUM_ENDPOINTS_LIST_ROUTE, sidebar: CILIUM_ROOT_SIDEBAR },
   name: CILIUM_ENDPOINT_DETAILS_ROUTE,
   exact: true,
   component: CiliumEndpointDetailsView,
@@ -748,8 +750,7 @@ registerRoute({
 // CiliumIdentity Detail View
 registerRoute({
   path: '/cilium/identities/:name',
-  sidebar: CILIUM_IDENTITIES_LIST_ROUTE,
-  parent: CILIUM_ROOT_SIDEBAR,
+  sidebar: { item: CILIUM_IDENTITIES_LIST_ROUTE, sidebar: CILIUM_ROOT_SIDEBAR },
   name: CILIUM_IDENTITY_DETAILS_ROUTE,
   exact: true,
   component: CiliumIdentityDetailsView,
@@ -788,8 +789,7 @@ registerRoute({
 // CiliumNode Detail View
 registerRoute({
   path: '/cilium/nodes/:name',
-  sidebar: CILIUM_NODES_LIST_ROUTE,
-  parent: CILIUM_ROOT_SIDEBAR,
+  sidebar: { item: CILIUM_NODES_LIST_ROUTE, sidebar: CILIUM_ROOT_SIDEBAR },
   name: CILIUM_NODE_DETAILS_ROUTE,
   exact: true,
   component: CiliumNodeDetailsView,
