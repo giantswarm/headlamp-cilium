@@ -6,18 +6,17 @@ This plugin integrates [Cilium](https://cilium.io/), a cloud-native networking, 
 
 Cilium provides eBPF-based networking, security, and observability. Managing and monitoring its components (Network Policies, Endpoints, Identities, Nodes, etc.) often involves `kubectl` or the Cilium CLI. This Headlamp plugin aims to bring essential Cilium resource details and status directly into your primary Kubernetes dashboard, streamlining workflows.
 
-## Features (Planned)
+## Features
 
-This plugin aims to support viewing the following Cilium resources:
+This plugin provides list and detail views for the following Cilium resources:
 
-*   **CiliumNetworkPolicies (CNP):** List view and detailed view.
-*   **CiliumClusterwideNetworkPolicies (CCNP):** List view and detailed view.
-*   **CiliumEndpoints (CEP):** List view and detailed view showing status, identity, networking details, and policy enforcement status.
-*   **CiliumIdentities:** List view and detailed view showing security labels.
-*   **CiliumNodes:** List view and detailed view showing node addressing, IPAM status, and health.
-*   *(Potentially others like CiliumExternalWorkloads, CiliumCIDRGroups, etc. in the future)*
+*   **CiliumNetworkPolicies (CNP):** List and detail views with condition-derived, colored policy status and per-rule ingress/egress breakdown.
+*   **CiliumClusterwideNetworkPolicies (CCNP):** List and detail views, same status handling as CNP.
+*   **CiliumEndpoints (CEP):** List and detail views showing status, identity, networking details, and policy enforcement status.
+*   **CiliumIdentities:** List and detail views showing security and Kubernetes labels.
+*   **CiliumNodes:** List and detail views showing node addressing, IPAM status (as tables), and health.
 
-*Note: Detail views are currently basic placeholders showing raw YAML.*
+Additional CRDs (e.g. CiliumExternalWorkloads, CiliumCIDRGroups) may be added in the future.
 
 ## Prerequisites
 
@@ -117,9 +116,24 @@ This image can now be referenced in an initContainer as shown above. A CI workfl
 
 1.  Clone the repository.
 2.  `cd headlamp-cilium`
-3.  `npm install`
+3.  `npm install --legacy-peer-deps`
 4.  `npm run start`
 5.  Run Headlamp desktop and point it to load plugins from the appropriate directory, or manually copy build artifacts.
+
+### Source layout
+
+*   `src/index.tsx` -- registration only (sidebar entries + routes).
+*   `src/resources/` -- typed `makeCustomResourceClass` definitions and CRD TypeScript interfaces.
+*   `src/components/` -- list and detail views, one file per resource.
+*   `src/utils/` -- shared helpers (status mapping, selector/port/CIDR formatting).
+
+### Checks
+
+*   `npm run lint` -- ESLint.
+*   `npm run tsc` -- type check.
+*   `npm test` -- unit tests.
+*   `npm run storybook` -- component stories.
+*   `npm run build` -- produce `dist/` for packaging.
 
 ## Contributing / Feedback
 
