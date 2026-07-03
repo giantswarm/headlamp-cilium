@@ -54,7 +54,7 @@ Modify your Headlamp Helm `values.yaml` or Deployment manifest:
 
 initContainers:
   - name: init-cilium-plugin
-    image: ghcr.io/giantswarm/headlamp-cilium:latest
+    image: gsoci.azurecr.io/giantswarm/headlamp-cilium:0.1.0 # use the latest release tag
     imagePullPolicy: Always
     command:
       - /bin/sh
@@ -100,17 +100,21 @@ Once installed and Headlamp is connected to a cluster with Cilium running:
 
 You can build a container image containing just the built plugin files (`dist/` and `package.json`). Use the `Dockerfile` provided in this repository.
 
-1.  **Build the image:** Run from the repository root:
+1.  **Build the plugin bundle:** the Dockerfile only copies a prebuilt `dist/`, so build it first:
+    ```bash
+    npm run ci:build
+    ```
+2.  **Build the image:** Run from the repository root:
     ```bash
     docker build -t ghcr.io/your-org/headlamp-cilium:my-tag .
     ```
     (Replace `your-org` and `my-tag`).
 
-2.  **Push the image:** (If needed for your cluster)
+3.  **Push the image:** (If needed for your cluster)
     ```bash
     docker push ghcr.io/your-org/headlamp-cilium:my-tag
     ```
-This image can now be referenced in an initContainer as shown above. A CI workflow (`.github/workflows/ci.yml`) is included as an example for automating this.
+This image can now be referenced in an initContainer as shown above. Official images are published to `gsoci.azurecr.io/giantswarm/headlamp-cilium` on every release by the CircleCI pipeline.
 
 ## Development
 
